@@ -11,3 +11,13 @@ func NewAuthorController(db *mongo.Client) *AuthorController {
 		db: db,
 	}
 }
+
+type BookController struct {
+	db *mongo.Client
+}
+
+func NewBookController(db *mongo.Client) *BookController {
+	return &BookController{
+		db: db,
+	}
+}

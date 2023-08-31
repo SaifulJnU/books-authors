@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/saifujnu/books-authors/db"
 	"github.com/saifujnu/books-authors/models"
 
 	"github.com/gin-gonic/gin"
@@ -12,14 +11,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func CreateBook(c *gin.Context) {
+func (bc *BookController) CreateBook(c *gin.Context) {
 	var book models.Book
 	if err := c.ShouldBindJSON(&book); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	bookCollection := db.Client.Database("book-authors").Collection("book")
+	bookCollection := bc.db.Database("book-authors").Collection("book")
 	insertResult, err := bookCollection.InsertOne(context.Background(), book)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create book"})
@@ -32,8 +31,8 @@ func CreateBook(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"_id": bookID})
 }
 
-func GetBooks(c *gin.Context) {
-	bookCollection := db.Client.Database("book-authors").Collection("book")
+func (bc *BookController) GetBooks(c *gin.Context) {
+	bookCollection := bc.db.Database("book-authors").Collection("book")
 	cursor, err := bookCollection.Find(context.Background(), bson.M{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch books"})
@@ -50,16 +49,80 @@ func GetBooks(c *gin.Context) {
 	c.JSON(http.StatusOK, books)
 }
 
-//rest code will be here
+func (bc *BookController) GetBookByID(c *gin.Context) {
+	bookID := c.Param("id")
+	bookObjID, err := primitive.ObjectIDFromHex(bookID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid book ID"})
+		return
+	}
 
-func GetBookByID(c *gin.Context) {
+	bookCollection := bc.db.Database("book-authors").Collection("book")
+	var book models.Book
 
+	err = bookCollection.FindOne(context.Background(), bson.M{"_id": bookObjID}).Decode(&book)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, book)
 }
 
-func UpdateBook(c *gin.Context) {
+func (bc *BookController) UpdateBook(c *gin.Context) {
+	bookID := c.Param("id")
+	bookObjID, err := primitive.ObjectIDFromHex(bookID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid book ID"})
+		return
+	}
 
+	var updatedBook models.Book
+	if err := c.ShouldBindJSON(&updatedBook); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	bookCollection := bc.db.Database("book-authors").Collection("book")
+
+	updateResult, err := bookCollection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": bookObjID},
+		bson.D{{Key: "$set", Value: updatedBook}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update book"})
+		return
+	}
+
+	if updateResult.ModifiedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Book updated successfully"})
 }
 
-func DeleteBook(c *gin.Context) {
+func (bc *BookController) DeleteBook(c *gin.Context) {
+	bookID := c.Param("id")
+	bookObjID, err := primitive.ObjectIDFromHex(bookID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid book ID"})
+		return
+	}
 
+	bookCollection := bc.db.Database("book-authors").Collection("book")
+
+	deleteResult, err := bookCollection.DeleteOne(context.Background(), bson.M{"_id": bookObjID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete book"})
+		return
+	}
+
+	if deleteResult.DeletedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Book deleted successfully"})
 }

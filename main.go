@@ -40,6 +40,7 @@ func main() {
 
 	//authorController := controllers.NewAuthorController(mgoConn)
 	authorController := controllers.NewAuthorController(m)
+	bookController := controllers.NewBookController(m)
 
 	// Author routes
 	router.POST("/authors", authorController.CreateAuthor)
@@ -49,11 +50,11 @@ func main() {
 	router.DELETE("/authors/:id", authorController.DeleteAuthor)
 
 	// Book routes
-	router.POST("/books", controllers.CreateBook)
-	router.GET("/books", controllers.GetBooks)
-	router.GET("/books/:id", controllers.GetBookByID)
-	router.PUT("/books/:id", controllers.UpdateBook)
-	router.DELETE("/books/:id", controllers.DeleteBook)
+	router.POST("/books", bookController.CreateBook)
+	router.GET("/books", bookController.GetBooks)
+	router.GET("/books/:id", bookController.GetBookByID)
+	router.PUT("/books/:id", bookController.UpdateBook)
+	router.DELETE("/books/:id", bookController.DeleteBook)
 
 	router.Run(":8080")
 }
