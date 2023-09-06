@@ -29,6 +29,7 @@ func (bc *BookController) CreateBook(c *gin.Context) {
 	bookID := insertResult.InsertedID.(primitive.ObjectID)
 
 	c.JSON(http.StatusCreated, gin.H{"_id": bookID})
+
 }
 
 func (bc *BookController) GetBooks(c *gin.Context) {
@@ -125,4 +126,81 @@ func (bc *BookController) DeleteBook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Book deleted successfully"})
+}
+
+// combine controller
+func (bc *BookController) GetAllBooksAndAuthors(c *gin.Context) {
+	bookCollection := bc.db.Database("book-authors").Collection("book")
+	//authorCollection := bc.db.Database("book-authors").Collection("author")
+
+	// Define the aggregation pipeline
+	pipeline := []bson.M{
+		{
+			"$lookup": bson.M{
+				"from":         "author",
+				"localField":   "authorId",
+				"foreignField": "_id",
+				"as":           "authorInfo",
+			},
+		},
+		{
+			"$unwind": bson.M{
+				"path":                       "$authorInfo",
+				"preserveNullAndEmptyArrays": true,
+			},
+		},
+		{
+			"$project": bson.M{
+				"_id":        1,
+				"title":      1,
+				"authorInfo": 1,
+			},
+		},
+	}
+
+	cursor, err := bookCollection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to aggregate books and authors"})
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	var combinedList []bson.M
+	if err := cursor.All(context.Background(), &combinedList); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode books and authors"})
+		return
+	}
+
+	c.JSON(http.StatusOK, combinedList)
+}
+
+func (bc *BookController) GetBooksByAuthorName(c *gin.Context) {
+	authorName := c.Param("authorName")
+
+	// Find the author by full name
+	authorCollection := bc.db.Database("book-authors").Collection("author")
+	var author models.Author
+
+	err := authorCollection.FindOne(context.Background(), bson.M{"fullName": authorName}).Decode(&author)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Author not found"})
+		return
+	}
+
+	// Find the books by author ID
+	bookCollection := bc.db.Database("book-authors").Collection("book")
+	cursor, err := bookCollection.Find(context.Background(), bson.M{"authorId": author.ID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch books"})
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	var books []models.Book
+	if err := cursor.All(context.Background(), &books); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode books"})
+		return
+	}
+
+	c.JSON(http.StatusOK, books)
 }

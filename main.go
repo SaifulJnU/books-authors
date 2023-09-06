@@ -55,6 +55,8 @@ func main() {
 	router.GET("/books/:id", bookController.GetBookByID)
 	router.PUT("/books/:id", bookController.UpdateBook)
 	router.DELETE("/books/:id", bookController.DeleteBook)
+	router.GET("/books-and-authors", bookController.GetAllBooksAndAuthors)
+	router.GET("/books-by-author/:authorName", bookController.GetBooksByAuthorName) // Add this line
 
 	router.Run(":8080")
 }
