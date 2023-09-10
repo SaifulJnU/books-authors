@@ -177,11 +177,11 @@ func (bc *BookController) GetAllBooksAndAuthors(c *gin.Context) {
 func (bc *BookController) GetBooksByAuthorName(c *gin.Context) {
 	authorName := c.Param("authorName")
 
-	// Find the author by full name
+	// Find the author by first name
 	authorCollection := bc.db.Database("book-authors").Collection("author")
 	var author models.Author
 
-	err := authorCollection.FindOne(context.Background(), bson.M{"fullName": authorName}).Decode(&author)
+	err := authorCollection.FindOne(context.Background(), bson.M{"firstName": authorName}).Decode(&author)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Author not found"})
 		return

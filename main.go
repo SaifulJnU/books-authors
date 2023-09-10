@@ -1,12 +1,15 @@
+// main.go
+
 package main
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	"github.com/saifujnu/books-authors/auth"
+	"github.com/saifujnu/books-authors/config"
 	"github.com/saifujnu/books-authors/controllers"
 	"github.com/saifujnu/books-authors/db/mongo"
-
-	"github.com/gin-gonic/gin"
-	"github.com/saifujnu/books-authors/config"
 )
 
 func init() {
@@ -19,44 +22,58 @@ func init() {
 }
 
 func main() {
-	//task1: take from env
-	// err := db.ConnectMongoDB("mongodb://admin:secret@localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0")
+	// Initialize MongoDB connection
+	// mongoURI := "mongodb://admin:secret@localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0" // Replace with your MongoDB URI
+	// clientOptions := options.Client().ApplyURI(mongoURI)
+	// client, err := mongo.Connect(context.Background(), clientOptions)
 	// if err != nil {
-	// 	panic(err)
+	// 	log.Fatal(err)
 	// }
+	// defer client.Disconnect(context.Background())
 
 	m, err := mongo.Connect()
 
 	if err != nil {
 		panic(err)
 	}
-
 	router := gin.Default()
 
-	// mgoConn, err := db.GetMongoCon("mongodb://admin:secret@localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0")
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	//authorController := controllers.NewAuthorController(mgoConn)
+	// Initialize controllers with the MongoDB client
 	authorController := controllers.NewAuthorController(m)
 	bookController := controllers.NewBookController(m)
+	authController := controllers.NewAuthController(m)
 
-	// Author routes
-	router.POST("/authors", authorController.CreateAuthor)
-	router.GET("/authors", authorController.GetAuthors)
-	router.GET("/authors/:id", authorController.GetAuthorByID)
-	router.PUT("/authors/:id", authorController.UpdateAuthor)
-	router.DELETE("/authors/:id", authorController.DeleteAuthor)
+	// Setup authentication routes
+	authRoutes := router.Group("/auth")
+	{
+		authRoutes.POST("/signup", authController.Signup)
+		authRoutes.POST("/login", authController.Login)
+	}
 
-	// Book routes
-	router.POST("/books", bookController.CreateBook)
-	router.GET("/books", bookController.GetBooks)
-	router.GET("/books/:id", bookController.GetBookByID)
-	router.PUT("/books/:id", bookController.UpdateBook)
-	router.DELETE("/books/:id", bookController.DeleteBook)
-	router.GET("/books-and-authors", bookController.GetAllBooksAndAuthors)
-	router.GET("/books-by-author/:authorName", bookController.GetBooksByAuthorName) // Add this line
+	// Define your CRUD routes for books and authors here
+	bookRoutes := router.Group("/books")
+	bookRoutes.Use(auth.JWTMiddleware()) // Protect /books routes with JWT middleware
+	{
+		bookRoutes.GET("/", bookController.GetBooks)
+		bookRoutes.GET("/:id", bookController.GetBookByID)
+		bookRoutes.POST("/", bookController.CreateBook)
+		bookRoutes.PUT("/:id", bookController.UpdateBook)
+		bookRoutes.DELETE("/:id", bookController.DeleteBook)
+		bookRoutes.GET("/books-and-authors", bookController.GetAllBooksAndAuthors)
+		bookRoutes.GET("/books-by-author/:authorName", bookController.GetBooksByAuthorName)
+	}
 
+	authorRoutes := router.Group("/authors")
+	authorRoutes.Use(auth.JWTMiddleware()) // Protect /authors routes with JWT middleware
+	{
+		authorRoutes.GET("/", authorController.GetAuthors)
+		authorRoutes.GET("/:id", authorController.GetAuthorByID)
+		authorRoutes.POST("/", authorController.CreateAuthor)
+		authorRoutes.PUT("/:id", authorController.UpdateAuthor)
+		authorRoutes.DELETE("/:id", authorController.DeleteAuthor)
+	}
+
+	// Start the server
+	// ...
 	router.Run(":8080")
 }
