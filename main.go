@@ -1,16 +1,29 @@
-// main.go
-
 package main
 
 import (
+	"os"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 
+	ginzap "github.com/gin-contrib/zap"
 	"github.com/saifujnu/books-authors/auth"
 	"github.com/saifujnu/books-authors/config"
 	"github.com/saifujnu/books-authors/controllers"
 	"github.com/saifujnu/books-authors/db/mongo"
 )
+
+var Logger *zap.Logger
+
+func InitializeLogger() (*zap.Logger, error) {
+	logger, err := zap.NewDevelopment() // with NewDevelopment() I can Call info, error and debug also
+	if err != nil {
+		return nil, err
+	}
+	return logger, nil
+}
 
 func init() {
 	err := godotenv.Load()
@@ -19,29 +32,33 @@ func init() {
 	}
 	config.SetEnvionment()
 
+	// Replace the standard logger with Zap logger
+	var errLogger error
+	Logger, errLogger = InitializeLogger()
+	if errLogger != nil {
+		panic("Failed to initialize Zap logger: " + errLogger.Error())
+	}
 }
 
 func main() {
 	// Initialize MongoDB connection
-	// mongoURI := "mongodb://admin:secret@localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0" // Replace with your MongoDB URI
-	// clientOptions := options.Client().ApplyURI(mongoURI)
-	// client, err := mongo.Connect(context.Background(), clientOptions)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer client.Disconnect(context.Background())
-
 	m, err := mongo.Connect()
-
 	if err != nil {
-		panic(err)
+		Logger.Error("Failed to connect to MongoDB", zap.Error(err))
+		os.Exit(1)
 	}
-	router := gin.Default()
+
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+
+	//combining Gin and Zap logger
+	router.Use(ginzap.Ginzap(Logger, time.RFC3339, true))
+	router.Use(ginzap.RecoveryWithZap(Logger, true))
 
 	// Initialize controllers with the MongoDB client
-	authorController := controllers.NewAuthorController(m)
-	bookController := controllers.NewBookController(m)
-	authController := controllers.NewAuthController(m)
+	authorController := controllers.NewAuthorController(m, Logger)
+	bookController := controllers.NewBookController(m, Logger)
+	authController := controllers.NewAuthController(m, Logger)
 
 	// Setup authentication routes
 	authRoutes := router.Group("/auth")
@@ -73,7 +90,12 @@ func main() {
 		authorRoutes.DELETE("/:id", authorController.DeleteAuthor)
 	}
 
-	// Start the server
-	// ...
-	router.Run(":8080")
+	Logger.Info("Server started on :8080") // Use the logger
+
+	err1 := router.Run(":8080")
+	if err1 != nil {
+		Logger.Error("Failed to start server", zap.Error(err1))
+		os.Exit(1)
+	}
+
 }
