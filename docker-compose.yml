@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+  api:
+    image: books-authors:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+    networks:
+      - my-network
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    networks:
+      - my-network
+    volumes:
+      - ./mongodb-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=book-authors
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    networks:
+      - my-network
+    volumes:
+      - ./prometheus-config:/etc/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+networks:
+  my-network:
+    driver: bridge

@@ -19,5 +19,5 @@ func GetEnvDefault(key string, defVal string) string {
 
 func SetEnvionment() {
 	ENV = GetEnvDefault("ENV", "local")
-	MongoURL = GetEnvDefault("Mongo_URL", "mongodb://admin:secret@localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0")
+	MongoURL = GetEnvDefault("MONGODB_URI", "mongodb://admin:secret@localhost:27017,localhost:27018,localhost:27019/?replicaSet=rs0")
 }

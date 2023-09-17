@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'myappforBooksAuthors'
+    static_configs:
+      - targets: ['api:8080']  # Use the service name 'api' and port 8080
+
+alerting:
+  alertmanagers:
+    - static_configs:
+      - targets: ['localhost:9093']  # Example Alertmanager target
