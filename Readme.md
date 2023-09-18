@@ -29,7 +29,7 @@ docker logs books-authors_api_1
 To check Prometheus metrics, open your browser and navigate to ```localhost:9090 ```or: <br>
 [![Prometheus Metrics](https://img.shields.io/badge/Prometheus-Metrics-blue)](http://localhost:9090/graph?g0.expr=&g0.tab=1&g0.stacked=0&g0.show_exemplars=0&g0.range_input=1h)
 
-## To monitor the number of successful logins, use the following Prometheus metric name: <br>
+ To monitor the number of successful logins, use the following Prometheus metric name: 
 
 ```bash
 myapp_successful_logins_total
