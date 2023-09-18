@@ -9,10 +9,13 @@ This is a REST API project that implements various requests for Books and Author
 To run the project on your local PC, follow these steps:
 
 1. Build the Docker image: <br>
-```docker build -t books-authors .``` <br>
-
+```bash
+docker build -t books-authors .   
+```
 2. Start the containers in detached mode using Docker Compose: <br>
-```sudo docker-compose up -d``` <br>
+```bash
+sudo docker-compose up -d
+```
 
 ## Viewing Logs
 
@@ -28,7 +31,9 @@ To check Prometheus metrics, open your browser and navigate to: <br>
 
 ## To monitor the number of successful logins, use the following Prometheus metric name: <br>
 
-```myapp_successful_logins_total```
+```bash
+myapp_successful_logins_total
+```
 
 ## Additional Details
 More details about the project are coming soon.
