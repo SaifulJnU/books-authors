@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// //////////for author controller///////////////
 type AuthorController struct {
 	db     *mongo.Client
 	logger *zap.Logger // Add a logger field

@@ -9,14 +9,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
 func (bc *BookController) CreateBook(c *gin.Context) {
 	// Log the start of book creation.
-	bc.logger.Info("Creating book")
+	bc.logger.Debug("Creating book")
 
 	var book models.Book
+
+	book.ID = primitive.NewObjectID() //this is optional
+
 	if err := c.ShouldBindJSON(&book); err != nil {
 		// Log the error and return a bad request response.
 		bc.logger.Error("Invalid JSON input", zap.Error(err))
@@ -45,7 +49,7 @@ func (bc *BookController) CreateBook(c *gin.Context) {
 
 func (bc *BookController) GetBooks(c *gin.Context) {
 	// Log the start of fetching books.
-	bc.logger.Info("Fetching books")
+	bc.logger.Debug("Fetching books")
 
 	bookCollection := bc.db.Database("book-authors").Collection("book")
 	cursor, err := bookCollection.Find(context.Background(), bson.M{})
@@ -109,29 +113,60 @@ func (bc *BookController) UpdateBook(c *gin.Context) {
 	}
 
 	// Log the start of updating a book.
-	bc.logger.Info("Updating book", zap.String("BookID", bookID))
+	bc.logger.Debug("Updating book", zap.String("BookID", bookID))
 
-	var updatedBook models.Book
-	if err := c.ShouldBindJSON(&updatedBook); err != nil {
+	var existingBook models.Book
+	bookCollection := bc.db.Database("book-authors").Collection("book")
+	err = bookCollection.FindOne(context.Background(), bson.M{"_id": bookObjID}).Decode(&existingBook)
+	if err != nil {
+		// Log the error and return a not found response.
+		bc.logger.Error("Book not found", zap.Error(err))
+		c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
+		return
+	}
+
+	var updateBook models.Book
+	if err := c.ShouldBindJSON(&updateBook); err != nil {
 		// Log the error and return a bad request response.
 		bc.logger.Error("Invalid JSON input", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	bookCollection := bc.db.Database("book-authors").Collection("book")
-	update := bson.M{"$set": updatedBook}
-	_, err = bookCollection.UpdateOne(context.Background(), bson.M{"_id": bookObjID}, update)
-	if err != nil {
+	// Preserve the existing authorId if not provided in the update
+	emptyObjectID := primitive.NilObjectID
+	if updateBook.AuthorID == emptyObjectID {
+		updateBook.AuthorID = existingBook.AuthorID
+	}
+
+	// Define the update filter and update document
+	filter := bson.M{"_id": bookObjID}
+	update := bson.M{
+		"$set": updateBook,
+	}
+
+	// Perform the update and return the updated document
+	updatedResult := bookCollection.FindOneAndUpdate(context.Background(), filter, update, options.FindOneAndUpdate().SetReturnDocument(options.After))
+	if updatedResult.Err() != nil {
 		// Log the error and return an internal server error response.
-		bc.logger.Error("Failed to update book", zap.Error(err))
+		bc.logger.Error("Failed to update book", zap.Error(updatedResult.Err()))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update book"})
+		return
+	}
+
+	var updatedBook models.Book
+	if err := updatedResult.Decode(&updatedBook); err != nil {
+		// Log the error and return an internal server error response.
+		bc.logger.Error("Failed to decode updated book", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode updated book"})
 		return
 	}
 
 	// Log the successful update of the book.
 	bc.logger.Debug("Book updated successfully", zap.String("BookID", bookID))
-	c.Status(http.StatusOK)
+
+	// Return the updated document in the response
+	c.JSON(http.StatusOK, updatedBook)
 }
 
 func (bc *BookController) DeleteBook(c *gin.Context) {
